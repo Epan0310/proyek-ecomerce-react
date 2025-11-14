@@ -9,6 +9,12 @@ const nextConfig = {
         port: "",
         pathname: "/**", // Izinkan semua path di domain ini
       },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com", // <-- Tambahkan domain baru di sini
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
   // --- BATAS TAMBAHAN ---

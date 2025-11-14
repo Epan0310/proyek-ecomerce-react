@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Footer from "@/components/Footer"; // <-- 1. IMPORT FOOTER
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,10 +25,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      {/* 2. Tambahkan class 'flex flex-col min-h-screen' di <body> */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
-        {children}
+        {/* 3. Bungkus {children} dengan <main> */}
+        <main className="flex-grow">
+          {children}
+        </main>
+        
+        <Footer /> {/* <-- 4. Tampilkan Footer di sini */}
       </body>
     </html>
   );
