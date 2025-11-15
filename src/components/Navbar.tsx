@@ -3,29 +3,32 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-// 1. IMPORT BARU: Kita tambahkan icon keranjang belanja
 import { ShoppingCartIcon } from "@heroicons/react/24/outline";
 
 type UserProfile = {
   id: number;
   name: string;
   email: string;
-  // Kita tambahkan 'image' agar bisa menampilkan foto profil asli nanti
   image?: string | null;
+  role: string;
 } | null;
 
 export default function Navbar() {
-  // --- LOGIKA ASLI ANDA (TIDAK BERUBAH SAMA SEKALI) ---
   const [user, setUser] = useState<UserProfile>(null);
   const router = useRouter();
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const res = await fetch("/api/profile", {
+        // --- PERUBAHAN 1: PAKSA CACHE-BUST ---
+        // Menambahkan parameter acak (timestamp)
+        const res = await fetch(`/api/profile?t=${new Date().getTime()}`, {
           method: "GET",
           credentials: "include",
+          cache: "no-store", // Biarkan ini tetap ada
         });
+        // --- BATAS PERUBAHAN 1 ---
+
         if (!res.ok) {
           setUser(null);
           return;
@@ -46,24 +49,25 @@ export default function Navbar() {
         credentials: "include",
       });
       setUser(null);
-      router.push("/login");
+
+      // --- PERUBAHAN 2: PAKSA RELOAD ---
+      // Mengganti router.push() dengan ini agar state React hancur total
+      window.location.href = "/login";
+      // --- BATAS PERUBAHAN 2 ---
     } catch (err) {
       console.error("Logout error:", err);
     }
   };
-  // --- BATAS AKHIR LOGIKA ANDA ---
 
-  // --- TAMPILAN JSX (DIMODIFIKASI) ---
   return (
     <nav className="w-full bg-gradient-to-br from-green-400 to-blue-600 text-white shadow-md px-6 py-4 flex items-center justify-between">
       {/* Kiri: Logo + Nav Links */}
       <div className="flex items-center gap-8">
-        {/* Logo */}
         <Link href="/dashboard" className="text-xl font-bold text-white">
           MyShop
         </Link>
 
-        {/* Nav Links (Biar tidak sepi) */}
+        {/* Nav Links */}
         <div className="hidden md:flex items-center gap-5">
           <Link
             href="/dashboard"
@@ -77,27 +81,33 @@ export default function Navbar() {
           >
             Shop
           </Link>
+
+          {/* Pengecekan role (sudah benar) */}
+          {user && user.role === "ADMIN" && (
+            <Link
+              href="/admin/products"
+              className="font-bold text-yellow-300 hover:text-yellow-400 transition"
+            >
+              Admin Panel
+            </Link>
+          )}
         </div>
       </div>
 
       {/* Kanan: Cart + Profile/Logout */}
       <div className="flex items-center gap-5">
-        {/* Icon Keranjang (Biar tidak sepi) */}
         <Link
           href="/cart"
           className="relative p-2 rounded-full hover:bg-white/10 transition"
         >
           <ShoppingCartIcon className="w-6 h-6" />
-          {/* Contoh notifikasi jumlah barang di keranjang */}
           <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
             0
           </span>
         </Link>
 
-        {/* Logika Asli Anda untuk Tampilan User */}
         {user ? (
           <>
-            {/* Area Profil (Bisa diklik) */}
             <Link
               href="/profile/edit"
               className="flex items-center gap-3 p-1 rounded-lg hover:bg-white/10 transition"
@@ -106,7 +116,6 @@ export default function Navbar() {
                 Hi, {user.name}
               </span>
               <img
-                // Gunakan user.image jika ada, jika tidak, pakai UI Avatars
                 src={
                   user.image || `https://ui-avatars.com/api/?name=${user.name}`
                 }
@@ -115,7 +124,6 @@ export default function Navbar() {
               />
             </Link>
 
-            {/* Tombol Logout (Styling disesuaikan) */}
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition"
@@ -124,7 +132,6 @@ export default function Navbar() {
             </button>
           </>
         ) : (
-          // Tombol Login (Styling disesuaikan)
           <Link
             href="/login"
             className="px-4 py-2 bg-white text-green-600 font-semibold rounded-xl hover:bg-gray-100 transition"

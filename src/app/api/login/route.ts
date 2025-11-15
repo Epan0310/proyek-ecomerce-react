@@ -1,11 +1,10 @@
-import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextResponse, NextRequest } from "next/server"; // <-- Ganti 'Request' jadi 'NextRequest'
+import { prisma } from "@/lib/prisma"; // <-- 1. GANTI IMPORT PRISMA
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const prisma = new PrismaClient();
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // <-- Ganti juga di sini
   try {
     const { email, password } = await req.json();
 
@@ -34,21 +33,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Password salah" }, { status: 401 });
     }
 
-    // JWT payload (role optional kalau memang tidak ada)
-    const payload: any = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-    };
-
-    if ((user as any).role) {
-      payload.role = (user as any).role;
-    }
-
+    // --- 2. INI MODIFIKASI ANDA ---
     // Buat token
-    const token = jwt.sign(payload, process.env.JWT_SECRET!, {
-      expiresIn: "1d",
-    });
+    // Kita bisa langsung masukkan 'role' karena skema kita menjaminnya
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role, // <-- Langsung tambahkan di sini
+      },
+      process.env.JWT_SECRET!,
+      {
+        expiresIn: "1d",
+      }
+    );
+    // --- Batas Modifikasi ---
 
     const res = NextResponse.json(
       { message: "Login berhasil" },

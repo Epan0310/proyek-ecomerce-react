@@ -3,6 +3,14 @@ import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
 import { serialize } from "cookie";
 
+// 1. Buat Tipe data yang jelas untuk token
+interface TokenPayload {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 // --- FUNGSI GET (Mengambil data profil terbaru) ---
 export async function GET(req: NextRequest) {
   try {
@@ -12,14 +20,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
-    };
+    // 2. Gunakan Tipe TokenPayload
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
 
     if (!decoded.id) {
       return NextResponse.json({ user: null }, { status: 401 });
     }
 
+    // Kode ini sudah SANGAT BAGUS.
+    // Dia mengambil data TERBARU dari DB, bukan dari token.
+    // Ini adalah cara yang aman.
     const user = await prisma.user.findUnique({
       where: {
         id: decoded.id,
@@ -47,20 +57,16 @@ export async function GET(req: NextRequest) {
 // --- FUNGSI PUT (Memperbarui data profil) ---
 export async function PUT(req: NextRequest) {
   try {
-    // 1. Autentikasi: Dapatkan ID user dari token
     const token = req.cookies.get("token")?.value;
 
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-      id: number;
-    };
+    // 2. Gunakan Tipe TokenPayload
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as TokenPayload;
 
     const userId = decoded.id;
-
-    // 2. Ambil data dari body request
     const body = await req.json();
     const { name, email, image } = body;
 
@@ -71,19 +77,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    // 3. Update database menggunakan Prisma + 'select'
-    //    Perhatikan: 'prisma.user.update', BUKAN 'findUnique'
     const updatedUser = await prisma.user.update({
       where: {
-        id: userId, // Update user berdasarkan ID dari token
+        id: userId,
       },
       data: {
         name: name,
         email: email,
-        image: image, // Simpan URL gambar baru
+        image: image,
       },
-      // 'select' ini penting untuk keamanan (tidak membocorkan password)
-      // dan untuk konsistensi tipe data
       select: {
         id: true,
         name: true,
@@ -93,7 +95,8 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    // 4. Buat TOKEN BARU dengan data yang sudah di-update
+    // --- 3. FIX BUG DURASI TOKEN ---
+    // Samakan dengan login & register (1 hari)
     const newToken = jwt.sign(
       {
         id: updatedUser.id,
@@ -103,23 +106,22 @@ export async function PUT(req: NextRequest) {
       },
       process.env.JWT_SECRET!,
       {
-        expiresIn: "1h", // Sesuaikan dengan durasi login Anda
+        expiresIn: "1d", // <-- GANTI JADI '1d' (1 hari)
       }
     );
 
-    // 5. Siapkan cookie baru untuk dikirim ke browser
     const newCookie = serialize("token", newToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60, // 1 jam
+      maxAge: 60 * 60 * 24, // <-- GANTI JADI 1 HARI (dalam detik)
       path: "/",
     });
+    // --- Batas Modifikasi ---
 
-    // 6. Kirim respons sukses DENGAN cookie baru
     return NextResponse.json(
       {
         message: "Profil berhasil diperbarui",
-        user: updatedUser, // Mengirim data user yang baru (dan aman)
+        user: updatedUser,
       },
       {
         status: 200,
@@ -131,7 +133,6 @@ export async function PUT(req: NextRequest) {
   } catch (err: any) {
     console.error("PUT /api/profile error:", err);
 
-    // Handle error jika email sudah terpakai oleh user lain
     if (err.code === "P2002" && err.meta?.target?.includes("email")) {
       return NextResponse.json(
         { error: "Email ini sudah digunakan" },
